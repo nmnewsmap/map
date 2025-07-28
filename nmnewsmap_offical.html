@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Interactive Dot–County Highlight</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css" rel="stylesheet" />
+  <style>
+    #map-title { position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  background-color: rgba(43, 26, 69, 0.40);
+  padding: 8px 16px;
+  font-size: 20px;
+  font-family: 'Helvetica Now', sans-serif;
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);}
+   body { margin: 0; padding: 0; }
+   #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+
+  /* Customize popup width and text style */
+  .mapboxgl-popup-content {
+    max-width: 400px;  /* Change this to whatever size you want */
+    font-size: 14px;
+    line-height: 1.4;
+    overflow-y: auto;
+
+        font-family: 'Century Gothic', serif; /* Change to your preferred font */
+    font-size: 14px;
+    line-height: 1.5;
+    color: #2b1a45;               /* Text color */
+    background-color: #f9f9f9;    /* Background color */
+    border-radius: 6px;
+    padding: 10px;
+  }
+
+  .mapboxgl-popup {
+    z-index: 10;
+  }
+
+  </style>
+</head>
+<body>
+
+<div id="map-title">New Mexico Local News Fund Map</div>
+
+<div id="map"></div>
+
+<script>
+mapboxgl.accessToken = 'pk.eyJ1Ijoibm1uZXdzbWFwIiwiYSI6ImNtYjVkbmEwZDFlOXIyam9sM21mcDZsbDgifQ.LDcxjUWCHp-XRBbD5IbL3A';
+
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/nmnewsmap/cmb5lkl8h00hq01sy2p2vhm0w',
+  center: [-106.6, 34.5],
+  zoom: 6
+});
+
+map.on('load', () => {
+  // Add news outlets (dot layer)
+  map.addSource('nmnewsmapdata', {
+    type: 'vector',
+    url: 'mapbox://nmnewsmap.8oip9a14'
+  });
+
+  // Add county polygons
+  map.addSource('nm_counties', {
+    type: 'vector',
+    url: 'mapbox://nmnewsmap.6qbfdhfw'
+  });
+
+  // Dot layer
+   map.addLayer({
+    id: 'nmnewsmapdata',
+    type: 'circle',
+    source: 'nmnewsmapdata',
+    'source-layer': 'nmnewsmapdata_geoc-4jkji2',
+    paint: {
+      'circle-radius': 5,
+      'circle-color': '#2b1a45',
+      'circle-stroke-color': '#e4e2e2',
+      'circle-stroke-width': 1}
+  });
+
+  // County highlighting layer
+  map.addLayer({
+    id: 'nm_counties',
+    type: 'fill',
+    source: 'nm_counties',
+    'source-layer': 'nm_counties_id-4syf2v',
+    paint: {
+      'fill-color': '#2b1a45',
+      'fill-opacity': [
+        'case',
+        ['boolean', ['feature-state', 'highlight'], false],
+        0.25,
+        0
+      ]
+    }
+  });
+  // Helper: Normalize county names for matching
+  function normalizeCountyName(raw) {
+  const cleaned = raw.toLowerCase().trim();
+  
+  if (cleaned.includes('san juan')) return 'san juan';
+  if (cleaned.includes('rio arriba')) return 'rio arriba';
+  if (cleaned.includes('doña ana') || cleaned.includes('dona ana')) return 'dona ana';
+  if (cleaned.includes('de baca')) return 'de baca';
+
+  const known = ['bernalillo', 'catron', 'chaves', 'cibola', 'colfax', 'curry', 'de baca',
+    'dona ana', 'eddy', 'grant', 'guadalupe', 'harding', 'hidalgo', 'lea',
+    'lincoln', 'los alamos', 'luna', 'mckinley', 'mora', 'otero', 'quay',
+    'rio arriba', 'roosevelt', 'sandoval', 'san juan', 'san miguel', 'santa fe',
+    'sierra', 'socorro', 'taos', 'torrance', 'union', 'valencia'];
+    
+  return known.includes(cleaned) ? cleaned : null;
+  }
+  
+  // On dot click
+  map.on('click', 'nmnewsmapdata', (e) => {
+  const props = e.features[0].properties;
+  const countiesText = props.NM_AREA_SERVED || '';
+  const counties = countiesText.split(',')
+    .map(name => normalizeCountyName(name))
+    .filter(Boolean); // remove nulls
+
+  const name = props["OUTLET_NAME"] || 'Unnamed';
+  const website = props["WEBSITE"] || 'N/A';
+  const media = props["PRIMARY_MEDIA"] || 'N/A';
+  const city = props["Address_City"] || '';
+  const area = props["NM_AREA_SERVED_TB"] || '';
+  const freq = props["FREQ"] || 'N/A';
+  const staff = props["NEWS_STAFFING_FTES"];
+  const lang = props["LANGUAGE"] || 'N/A';
+  const trans = props["TRANSLATION"] || '';
+  const newsIndex = props["NEWS_CONTENT_INDEX"] || 'N/A';
+  const year = props["Year_Founded"] || 'N/A';
+  const owner = props["OWNER"] || 'N/A';
+  const type = props["OWNER_TYPE"] || '';
+  const facebook = props["Facebook"] || '';
+  const instagram = props["Instagram"] || '';
+  const youtube = props["YouTube"] || '';
+  const tiktok = props["TikTok"] || '';
+  const comments = props["NEWS_CONTENT_REMARKS"] || '';
+  const lastUpdate = props["LAST_UPDATE"] || 'N/A';
+
+  const fieldsToCheck = [website, media, freq, staff, lang, trans, newsIndex, city, year, owner, type, facebook, instagram, youtube, tiktok, lastUpdate, comments];
+  const missingInfoNote = fieldsToCheck.some(f => typeof f === 'string' && f.includes('*'))
+    ? '<br><em>*Did not provide complete information.</em>'
+    : '';
+    
+  new mapboxgl.Popup()
+    .setLngLat(e.lngLat)
+    .setHTML(`
+      <strong>${name}</strong><br>
+      <strong>Website:</strong> <a href="${website}" target="_blank">${website}</a><br>
+      <strong>Primary Media:</strong> ${media}<br>
+      <strong>City:</strong> ${city}<br>
+      <strong>Area Served:</strong> ${area}<br>
+      <strong>Frequency:</strong> ${freq}<br>
+      <strong>Staff FTES:</strong> ${staff}<br>
+      <strong>Language:</strong> ${lang}${trans ? ` (Translation: ${trans})` : ''}<br>
+      <strong>Year Founded:</strong> ${year}<br>
+      <strong>Owner:</strong> ${owner}, ${type}<br>
+      ${facebook ? `<strong>Facebook:</strong> <a href="${facebook}" target="_blank">Link</a><br>` : ''}
+      ${instagram ? `<strong>Instagram:</strong> <a href="${instagram}" target="_blank">Link</a><br>` : ''}
+      ${youtube ? `<strong>YouTube:</strong> <a href="${youtube}" target="_blank">Link</a><br>` : ''}
+      ${tiktok ? `<strong>TikTok:</strong> <a href="${tiktok}" target="_blank">Link</a><br>` : ''}
+      <strong>Content Index:</strong> ${newsIndex}<br>
+      <strong>Content:</strong> ${comments}<br>
+      <strong>Last Update:</strong> ${lastUpdate}<br>
+      ${missingInfoNote}
+    `)
+    .addTo(map);
+
+     // Reset county highlights
+  const countyFeatures = map.querySourceFeatures('nm_counties', {
+    sourceLayer: 'nm_counties_id-4syf2v'
+  });
+
+  countyFeatures.forEach(c => {
+    map.setFeatureState(
+      { source: 'nm_counties', sourceLayer: 'nm_counties_id-4syf2v', id: c.id },
+      { highlight: false }
+    );
+  });
+
+  // Highlight matched counties
+  countyFeatures.forEach(c => {
+    const featureCountyName = c.properties.NAME ? c.properties.NAME.toLowerCase().trim() : '';
+    if (counties.includes(featureCountyName)) {
+      map.setFeatureState(
+        { source: 'nm_counties', sourceLayer: 'nm_counties_id-4syf2v', id: c.id },
+        { highlight: true }
+      );
+    }
+  });
+});
+
+
+  // Reset if map clicked elsewhere
+  map.on('click', (e) => {
+    const features = map.queryRenderedFeatures(e.point, { layers: ['nmnewsmapdata'] });
+    if (!features.length) {
+      const countyFeatures = map.querySourceFeatures('nm_counties', {
+        sourceLayer: 'nm_counties_id-4syf2v'
+      });
+      countyFeatures.forEach(c => {
+        map.setFeatureState(
+          { source: 'nm_counties', sourceLayer: 'nm_counties_id-4syf2v', id: c.id },
+          { highlight: false }
+        );
+      });
+    }
+  });
+});
+</script>
+
+</body>
+</html>
